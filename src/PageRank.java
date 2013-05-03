@@ -15,6 +15,9 @@ public abstract class PageRank {
   /* mapping from start to num of ends */
   protected Map<String, Integer> sizes = null;
 
+  /* docs that has no outlink */
+  protected List<String> noOutLink = null;
+
   /* the damping factor */
   protected static double alpha = 0.15;
 
@@ -25,21 +28,29 @@ public abstract class PageRank {
   protected int numofdocs = 0;
 
   /**
-   * constructor method, initialize data structures 
+   * constructor method, initialize data structures
    */
   public PageRank() {
     /* store the edges */
     edges = new HashMap<String, List<String>>();
     sizes = new HashMap<String, Integer>();
+    /* store doc id that has no outlink */
+    noOutLink = new ArrayList<String>();
   }
 
   /**
    * read edges in the graph
-   * @param epath file path to edges 
+   * 
+   * @param epath
+   *          file path to edges
    */
   protected void readEdges(String epath) {
     /* store the doc id */
     Set<String> docs = new HashSet<String>();
+
+    /* store doc id that has outlink */
+    Set<String> outs = new HashSet<String>();
+
     /* start reading edge file */
     BufferedReader br = null;
     try {
@@ -63,6 +74,8 @@ public abstract class PageRank {
         } else {
           edges.get(end).add(start);
         }
+        /* update outs */
+        outs.add(start);
         /* update docs */
         docs.add(start);
         docs.add(end);
@@ -78,11 +91,17 @@ public abstract class PageRank {
         }
     }
     this.numofdocs = docs.size();
+    /* update docs that has no out link */
+    for (String doc : docs) {
+      if (!outs.contains(doc))
+        noOutLink.add(doc);
+    }
   }
 
   /**
-   * compute the distance between two pagerank score vector
-   * the distance is computed as the Euclidean distance normalized by total number of docs   
+   * compute the distance between two pagerank score vector the distance is computed as the
+   * Euclidean distance normalized by total number of docs
+   * 
    * @param score1
    * @param score2
    * @return distance

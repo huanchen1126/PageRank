@@ -19,9 +19,13 @@ public class TopicSensitivePR extends PageRank {
 
   /**
    * constructor method
-   * @param epath : file path to edges
-   * @param tpath : file path to document topical information
-   * @param numoftopics : total number of topics
+   * 
+   * @param epath
+   *          : file path to edges
+   * @param tpath
+   *          : file path to document topical information
+   * @param numoftopics
+   *          : total number of topics
    */
   public TopicSensitivePR(String epath, String dpath, int numoftopics) {
     topics = new HashMap<Integer, Set<String>>();
@@ -31,12 +35,13 @@ public class TopicSensitivePR extends PageRank {
     for (int i = 1; i <= numoftopics; i++) {
       pagerank(i);
     }
-    //pagerank(12);
   }
-  
+
   /**
    * read document topical information
-   * @param dpath : file path to document topical information
+   * 
+   * @param dpath
+   *          : file path to document topical information
    */
   private void readDocTopic(String dpath) {
     BufferedReader br = null;
@@ -71,12 +76,13 @@ public class TopicSensitivePR extends PageRank {
 
   /**
    * 
-   * @param topic : the topic for topic sensitive pagerank
+   * @param topic
+   *          : the topic for topic sensitive pagerank
    */
   private void pagerank(int topic) {
     /* topic sensitive pagerank score */
     Map<String, Double> score = new HashMap<String, Double>();
-    
+
     /* set the initial pagerank score */
     double initialScore = 1.0 / numofdocs;
     for (int i = 1; i <= numofdocs; i++) {
@@ -87,19 +93,20 @@ public class TopicSensitivePR extends PageRank {
     int topicsize = docs.size();
     /* start pagerank iteration */
     double dist = Double.MAX_VALUE;
-    int iteration = 1;
     while (dist > DIST) {
-      long a = System.currentTimeMillis();
-      System.out.println("Iteration " + iteration++ + ", distance " + dist);
       /* one iteration */
       /* in each iteration, each node first has a initial damping score */
-      double tmpScore = 0.0;
-      for (String doc : score.keySet()) {
-        tmpScore += score.get(doc);
-      }
-      double dampScore = tmpScore / numofdocs * alpha;
+      double dampScore = alpha / numofdocs;
+
       /* docs in the right topic also have a initial topic score */
-      double topicScore = tmpScore / topicsize * beta;
+      double topicScore = beta / topicsize;
+
+      /* also each node will get a score from nodes with no outlink */
+      double outScore = 0.0;
+      for (String doc : noOutLink) {
+        outScore += score.get(doc);
+      }
+      outScore = outScore * (1 - alpha - beta) / numofdocs;
 
       /* start updating scores */
       Map<String, Double> newScore = new HashMap<String, Double>();
@@ -111,10 +118,10 @@ public class TopicSensitivePR extends PageRank {
           for (String start : list) {
             s += score.get(start) / sizes.get(start);
           }
-          s *= (1 - alpha);
+          s *= (1 - alpha - beta);
         }
         /* for all docs, add damping score */
-        s += dampScore;
+        s += dampScore + outScore;
         /* for docs with right topic, add topic score */
         if (docs.contains(doc))
           s += topicScore;
@@ -124,7 +131,6 @@ public class TopicSensitivePR extends PageRank {
       /* get the distance between current score to previous score */
       dist = getDist(score, newScore);
       score = newScore;
-      System.out.println("\r<br>time : " + (System.currentTimeMillis() - a) / 1000f + " seconds");
     }
     scores.put(topic, score);
   }

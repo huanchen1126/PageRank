@@ -9,7 +9,8 @@ public class GlobalPR extends PageRank {
   protected Map<String, Double> score = null;
 
   /**
-   * @param epath : file path of edges 
+   * @param epath
+   *          : file path of edges
    */
   public GlobalPR(String epath) {
     /* initialize score */
@@ -31,15 +32,17 @@ public class GlobalPR extends PageRank {
     double dist = Double.MAX_VALUE;
     int iteration = 1;
     while (dist > DIST) {
-      long a = System.currentTimeMillis();
-      System.out.println("Iteration " + iteration++ + ", distance " + dist+" first:" + score.get("1"));
+      // System.out.println("Iteration " + iteration++ + ", distance " + dist);
       /* one iteration */
       /* in each iteration, each node first has an initial damping score */
-      double dampScore = 0.0;
-      for (String doc : score.keySet()) {
-        dampScore += score.get(doc);
+      double dampScore = alpha / numofdocs;
+
+      /* also each node will get a score from nodes with no outlink */
+      double outScore = 0.0;
+      for (String doc : noOutLink) {
+        outScore += score.get(doc);
       }
-      dampScore = dampScore / numofdocs * alpha;
+      outScore = outScore * (1 - alpha) / numofdocs;
 
       /* start updating scores based on the graph structure */
       Map<String, Double> newScore = new HashMap<String, Double>();
@@ -54,26 +57,18 @@ public class GlobalPR extends PageRank {
           /* alpha is damping factor */
           s *= (1 - alpha);
         }
-        if(doc.equals("1"))
-          System.out.println("M first:"+ s);
         /* for all docs, add damping score */
-        s += dampScore;
+        s += dampScore + outScore;
         newScore.put(doc, s);
       }
       /* get the distance between current score to previous score */
       dist = getDist(score, newScore);
       score = newScore;
-      System.out.println("\r<br>time : " + (System.currentTimeMillis() - a) / 1000f + " seconds");
     }
-//    for(String doc : score.keySet()){
-//      System.out.println(doc +" : "+ score.get(doc));
-//    }
   }
 
   public Map<String, Double> getScore() {
     return this.score;
   }
-  
-  public static void main(String[] args) {
-  }
+
 }

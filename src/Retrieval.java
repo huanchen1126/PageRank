@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -24,7 +25,7 @@ public class Retrieval {
   private static int numoftopics = 12;
 
   /* the weight for page rank score */
-  private static double WS = 0.4;
+  private static double WS = 0.3;
 
   /* the scores of topic sensitive pagerank */
   private Map<Integer, Map<String, Double>> scores = null;
@@ -163,7 +164,9 @@ public class Retrieval {
     if (type == Type.GPR) {
       for (String doc : score.keySet()) {
         double s = score.get(doc);
-        result.put(doc, s);
+        s = Math.log(s);
+        if (searchRelevance.containsKey(doc))
+          result.put(doc, s);
       }
     } else { /* if topic sensitive pagerank */
       /* weighted sum based on the topical distribution */
@@ -172,10 +175,11 @@ public class Retrieval {
         Map<String, Double> score = scores.get(topic);
         for (String doc : score.keySet()) {
           double s = score.get(doc);
-          if (!result.containsKey(doc)) {
-            result.put(doc, s * distribution[topic - 1]);
-          } else
-            result.put(doc, result.get(doc) + s * distribution[topic - 1]);
+          if (searchRelevance.containsKey(doc))
+            if (!result.containsKey(doc)) {
+              result.put(doc, s * distribution[topic - 1]);
+            } else
+              result.put(doc, result.get(doc) + s * distribution[topic - 1]);
         }
       }
     }
@@ -183,10 +187,9 @@ public class Retrieval {
     for (String doc : result.keySet()) {
       if (searchRelevance.containsKey(doc))
         result.put(doc, WS * result.get(doc) + (1 - WS) * searchRelevance.get(doc));
+      else
+        result.put(doc, WS * result.get(doc));
     }
-    // for (String doc : result.keySet()) {
-    // System.out.println(doc + " : " + result.get(doc));
-    // }
     /* print to file */
     print(userquery, result);
   }
@@ -197,13 +200,15 @@ public class Retrieval {
    * @param userquery
    *          should be in format user-query
    */
-  public void retrievaNS(String userquery) {
+  public void retrieveNS(String userquery) {
+    Map<String, Double> searchRelevance = getSearchRelevanceScore(userquery);
     Map<String, Double> result = new HashMap<String, Double>();
     /* get the pagerank score according to different pagerank types */
     if (type == Type.GPR) {
       for (String doc : score.keySet()) {
         double s = score.get(doc);
-        result.put(doc, s);
+        if (searchRelevance.containsKey(doc))
+          result.put(doc, s);
       }
     } else { /* if topic sensitive pagerank */
       double[] distribution = this.topicDistr.get(userquery);
@@ -212,16 +217,14 @@ public class Retrieval {
         Map<String, Double> score = scores.get(topic);
         for (String doc : score.keySet()) {
           double s = score.get(doc);
-          if (!result.containsKey(doc)) {
-            result.put(doc, s * distribution[topic - 1]);
-          } else
-            result.put(doc, result.get(doc) + s * distribution[topic - 1]);
+          if (searchRelevance.containsKey(doc))
+            if (!result.containsKey(doc)) {
+              result.put(doc, s * distribution[topic - 1]);
+            } else
+              result.put(doc, result.get(doc) + s * distribution[topic - 1]);
         }
       }
     }
-    // for (String doc : result.keySet()) {
-    // System.out.println(doc + " : " + result.get(doc));
-    // }
     print(userquery, result);
   }
 
@@ -230,14 +233,15 @@ public class Retrieval {
    * 
    * @param userquery
    */
-  public void retrievaCM(String userquery) {
+  public void retrieveCM(String userquery) {
     Map<String, Double> searchRelevance = getSearchRelevanceScore(userquery);
     Map<String, Double> result = new HashMap<String, Double>();
     /* get the pagerank score according to different pagerank types */
     if (type == Type.GPR) {
       for (String doc : score.keySet()) {
         double s = score.get(doc);
-        result.put(doc, s);
+        if (searchRelevance.containsKey(doc))
+          result.put(doc, s);
       }
     } else { /* if topic sensitive pagerank */
       /* weighted sum based on the topical distribution */
@@ -246,10 +250,11 @@ public class Retrieval {
         Map<String, Double> score = scores.get(topic);
         for (String doc : score.keySet()) {
           double s = score.get(doc);
-          if (!result.containsKey(doc)) {
-            result.put(doc, s * distribution[topic - 1]);
-          } else
-            result.put(doc, result.get(doc) + s * distribution[topic - 1]);
+          if (searchRelevance.containsKey(doc))
+            if (!result.containsKey(doc)) {
+              result.put(doc, s * distribution[topic - 1]);
+            } else
+              result.put(doc, result.get(doc) + s * distribution[topic - 1]);
         }
       }
     }
@@ -258,9 +263,6 @@ public class Retrieval {
       if (searchRelevance.containsKey(doc))
         result.put(doc, result.get(doc) * searchRelevance.get(doc));
     }
-    // for (String doc : result.keySet()) {
-    // System.out.println(doc + " : " + result.get(doc));
-    // }
     print(userquery, result);
   }
 
@@ -272,12 +274,10 @@ public class Retrieval {
    * @param result
    */
   private void print(String userquery, Map<String, Double> result) {
-    int ind = userquery.indexOf('-');
-    String user = userquery.substring(0, ind);
-    String query = userquery.substring(ind + 1);
     BufferedWriter bw = null;
     try {
-      bw = new BufferedWriter(new FileWriter(output + "/" + userquery + ".results.txt", true));
+      File file = new File(output);
+      bw = new BufferedWriter(new FileWriter(file, true));
       /* build a minimum heap to get top 100 */
       PriorityQueue<Map.Entry<String, Double>> heap = new PriorityQueue<Map.Entry<String, Double>>(
               100, new Comparator<Map.Entry<String, Double>>() {
@@ -290,7 +290,7 @@ public class Retrieval {
               });
       /* add to heap */
       for (Map.Entry<String, Double> e : result.entrySet()) {
-        if (heap.size() < 100)
+        if (heap.size() < 500)
           heap.add(e);
         else {
           Map.Entry<String, Double> tmp = heap.peek();
@@ -309,7 +309,7 @@ public class Retrieval {
       /* print top 100 to files */
       int rank = 1;
       for (Map.Entry<String, Double> e : list) {
-        bw.write(query + " Q0 " + e.getKey() + " " + rank++ + " " + e.getValue() + " indri\n");
+        bw.write(userquery + " Q0 " + e.getKey() + " " + rank++ + " " + e.getValue() + " indri\n");
       }
     } catch (IOException e) {
       e.printStackTrace();
@@ -324,11 +324,36 @@ public class Retrieval {
   }
 
   public static void main(String[] args) {
+    if (args.length != 2) {
+      System.out.println("Retrieval <usage> : <pageranktype> <retrieve type>");
+      return;
+    }
+    String type = args[0];
+    String retrieveType = args[1];
+    Retrieval.output += "/" + type + "_" + retrieveType + ".result";
     long a = System.currentTimeMillis();
-    Retrieval r = new Retrieval(Retrieval.Type.PTSPR);
-    r.retrieveWS("19-5");
-    // Retrieval r = new Retrieval(Retrieval.Type.GPR);
-    // r.retrieveWS("19-5");
+    String path = Retrieval.searchRelevancePath;
+    File file = new File(path);
+    if (!file.exists())
+      return;
+    File[] files = file.listFiles();
+    Retrieval r = null;
+    if (type.equals("GPR"))
+      r = new Retrieval(Retrieval.Type.GPR);
+    else if (type.equals("QTSPR"))
+      r = new Retrieval(Retrieval.Type.QTSPR);
+    else
+      r = new Retrieval(Retrieval.Type.PTSPR);
+    for (File f : files) {
+      String fName = f.getName();
+      String userquery = fName.substring(0, fName.indexOf('.'));
+      if (retrieveType.equals("NS"))
+        r.retrieveNS(userquery);
+      else if (retrieveType.equals("WS"))
+        r.retrieveWS(userquery);
+      else
+        r.retrieveCM(userquery);
+    }
     System.out.println("\r<br>time : " + (System.currentTimeMillis() - a) / 1000f + " seconds");
   }
 }
